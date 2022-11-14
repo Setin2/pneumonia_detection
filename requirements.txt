@@ -1,0 +1,7 @@
+# run "python -m  pipreqs.pipreqs ." to get the requirements if changes are made
+# this might dd a requirement called "~ensorflow==x.x.x", just delete that line
+# and "python -m pip install -r requirements.txt" to install all requirements from the file
+keras==2.10.0
+matplotlib==3.5.0
+numpy==1.21.6
+tensorflow==2.10.0
