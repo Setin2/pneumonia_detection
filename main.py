@@ -61,8 +61,8 @@ class MaxPooling2D(keras.layers.Layer):
     def call(self, pools):
       # store the max values to pooled
       pooled = []
-      for tensor in tf.shape(pools):
-        pooled.append(tf.reduce_max(tensor))
+      for pool in pools: # this is a tensor or a subarray
+        pooled.append(tf.reduce_max(pool))
 
       # reshape and convert back to tensor
       pooled = np.array(pooled).reshape(self.pool_size)
