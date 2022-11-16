@@ -15,12 +15,15 @@ def custom_keras_generator():
 
 # link to documentation of creating our own keras layers: https://keras.io/guides/making_new_layers_and_models_via_subclassing/
 # we are allowed to use backend functions like K.dot(x, y)or K.conv2d(x, kernel)
-class Conv2d():
+class Conv2D(keras.layers.Layer):
     """
-     Our own implementation of a convolutional layer
+     Custom implementation of a convolutional layer
     """
     def __init__(self):
-      empty = None
+      empty = True
+    
+    def call(self, input):
+      return input
 
 class Linear(keras.layers.Layer):
     """
@@ -47,12 +50,25 @@ class Linear(keras.layers.Layer):
         outputs = self.activation(outputs) 
         return outputs
 
-class MaxPooling2D():
+class MaxPooling2D(keras.layers.Layer):
     """
-     Our own implementation of a pooling layer
+     Custom implementation of a pooling layer
     """
-    def __init__(self):
-      empty = None
+    def __init__(self, pool_size=(2, 2)):
+      super(MaxPooling2D, self).__init__()
+      self.pool_size = pool_size
+    
+    def call(self, pools):
+      # store the max values to pooled
+      pooled = []
+      for tensor in tf.shape(pools):
+        pooled.append(tf.reduce_max(tensor))
+
+      # reshape and convert back to tensor
+      pooled = np.array(pooled).reshape(self.pool_size)
+      pooled = tf.convert_to_tensor(pooled, dtype=tf.float32)
+
+      return pooled
 
 def create_model(resolution, load_previous_model=True):
   """ Return a keras model
@@ -96,6 +112,13 @@ def create_model(resolution, load_previous_model=True):
     plot_model(model, show_shapes=True, to_file='model_plot.png')
 
     return model
+
+def test_pooling_layer():
+    conv_output = np.array([[10, 12,  8,  7],[ 4, 11,  5,  9],[18, 13,  7,  7],[ 3, 15,  2,  2]])
+    conv_output = tf.convert_to_tensor(conv_output, dtype=tf.float32)
+    pooling_layer = MaxPooling2D()
+    y = pooling_layer(conv_output)
+    print(y)
 
 if __name__ == "__main__":
     resolution = 224  # 224x224x3
