@@ -128,18 +128,18 @@ def create_model(resolution, load_previous_model=True):
 
             Conv2D(filters=16, kernel=(3, 3), activation='relu'),
             # keras.layers.Conv2D(32, (3, 3), activation='relu'),
-            keras.layers.MaxPooling2D(2, 2),
+            MaxPooling2D(),
             keras.layers.Dropout(0.2),
 
 
             Conv2D(filters=64, kernel=(3, 3), activation='relu'),
             # keras.layers.Conv2D(64, (3, 3), activation='relu'),
-            keras.layers.MaxPooling2D(2, 2),
+            MaxPooling2D(),
             keras.layers.Dropout(0.2),
             # flatten the result to feed it to the dense layer
             keras.layers.Flatten(),
             # and define 512 neurons for processing the output coming by the previous layers
-            Linear(193600, 512, activation="relu"),
+            Linear(3125824, 512, activation="relu"),
             # a single output neuron. The result will be 0 if the image is a cat, 1 if it is a dog
             Linear(512, 1, activation="sigmoid")
         ])
