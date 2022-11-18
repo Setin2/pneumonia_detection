@@ -8,6 +8,7 @@ from keras.utils.vis_utils import plot_model
 import numpy as np
 from keras import activations
 from keras import backend as K
+import sys
 
 
 def custom_keras_generator():
@@ -99,16 +100,25 @@ class MaxPooling2D(keras.layers.Layer):
         self.pool_size = pool_size
 
     def call(self, pools):
-        # store the max values to pooled
-        pooled = []
-        for pool in pools:  # this is a tensor or a subarray
-            pooled.append(tf.reduce_max(pool))
-
-        # reshape and convert back to tensor
-        pooled = np.array(pooled).reshape(self.pool_size)
-        pooled = tf.convert_to_tensor(pooled, dtype=tf.float32)
+        pooled = K.pool2d(x=pools,
+                          pool_size=self.pool_size,
+                          strides=(1, 1),
+                          padding='valid',
+                          pool_mode='max')
 
         return pooled
+
+        # store the max values to pooled
+        # pooled = []
+        # for pool in pools:  # this is a tensor or a subarray
+        #     pooled.append(tf.reduce_max(pool))
+
+        # print(tf.is_tensor(pooled))
+        # reshape and convert back to tensor
+        # pooled = np.array(pooled).reshape(self.pool_size)
+        # pooled = tf.convert_to_tensor(pooled, dtype=tf.float32)
+
+        # return pooled
 
 
 def create_model(resolution, load_previous_model=True):
@@ -144,11 +154,10 @@ def create_model(resolution, load_previous_model=True):
             # flatten the result to feed it to the dense layer
             keras.layers.Flatten(),
             # and define 512 neurons for processing the output coming by the previous layers
-            Linear(50176, 512, activation="relu"),
+            Linear(193600, 512, activation="relu"),
             # a single output neuron. The result will be 0 if the image is a cat, 1 if it is a dog
             Linear(512, 1, activation="sigmoid")
         ])
-
 
         model.build((None, resolution, resolution, 3))
 
