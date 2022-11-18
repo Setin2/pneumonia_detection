@@ -48,9 +48,6 @@ class Conv2D(keras.layers.Layer):
         super(Conv2D, self).build(input_shape)
 
     def call(self, inputs):
-        # flatten the kernels
-        # kernel = K.reshape(self.kernels, [self.kernel_size, self.filters])
-
         outputs = K.conv2d(inputs, self.kernels, strides=(
             1, 1), padding='same', data_format=None, dilation_rate=(1, 1))
 
@@ -107,18 +104,6 @@ class MaxPooling2D(keras.layers.Layer):
                           pool_mode='max')
 
         return pooled
-
-        # store the max values to pooled
-        # pooled = []
-        # for pool in pools:  # this is a tensor or a subarray
-        #     pooled.append(tf.reduce_max(pool))
-
-        # print(tf.is_tensor(pooled))
-        # reshape and convert back to tensor
-        # pooled = np.array(pooled).reshape(self.pool_size)
-        # pooled = tf.convert_to_tensor(pooled, dtype=tf.float32)
-
-        # return pooled
 
 
 def create_model(resolution, load_previous_model=True):
