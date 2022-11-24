@@ -64,7 +64,6 @@ class CustomKerasGenerator(tf.keras.utils.Sequence):
         image_class = 0
         
         for directory in os.listdir(path):
-            image_class = 1
             images = os.listdir(os.path.join(path, directory))
             
             for image in images:
