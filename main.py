@@ -1,62 +1,101 @@
-import os.path
-from keras.layers.attention.multi_head_attention import activation
-import tensorflow as tf
-import matplotlib.pyplot as plt
-from tensorflow import keras
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.vis_utils import plot_model
-import numpy as np
-from keras import activations
-from keras import backend as K
 import sys
+import math
+import os.path
+import numpy as np
 import pandas as pd
+import scipy.ndimage
+import tensorflow as tf
+from tensorflow import keras
+from keras import activations
+from skimage import transform
+from keras import backend as K
+import matplotlib.pyplot as plt
+from keras.utils.vis_utils import plot_model
+from keras.preprocessing.image import ImageDataGenerator
+from keras.layers.attention.multi_head_attention import activation
 
-class CustomKerasGenerator(tf.keras.utils.Sequence):
-    """
-     Read the images in .txt format
-    """
-    def __init__(self):
-        self.data = None
+class CustomDataGenerator(tf.keras.utils.Sequence):
+    ''' 
+        Custom DataGenerator to load text images 
+    '''
+    def __init__(self, path, rescale=None, shear_range=None, zoom_range=None, rotation_range=None, 
+                horizontal_flip=False, vertical_flip=False, brightness_range=None, batch_size=10, img_shape=None, augmentation=True, num_classes=2):
+        self.data_frame = None
+        self.get_data_frame(path)
+        self.n = len(self.data_frame)
+        self.batch_size = batch_size
+        self.img_shape = img_shape
+        self.num_classes = num_classes
 
-    def apply_augmentation(self, image):
-        """
-         We will have to change this method and parametrize the values on init
-        """
-        # these methods dont work on numpy arrays
-        image = tf.keras.preprocessing.image.random_shift(image, 0.2, 0.3)
-        image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_flip_up_down(image)
+        self.rescale = rescale
+        self.horizontal_flip = horizontal_flip
+        self.vertical_flip = vertical_flip
+        self.shear_range = shear_range
+        self.zoom_range = zoom_range
+        self.rotation_range = rotation_range
+        self.brightness_range = brightness_range
+        print(f"Found {self.data_frame.shape[0]} images belonging to {self.num_classes} classes")
+
+    def __len__(self):
+        ''' 
+            return the number of batches
+        '''
+        return math.ceil(self.n / self.batch_size)
+    
+    def __data_augmentation(self, image):
+        ''' 
+            apply data augmentation to an image 
+        '''
+        if self.vertical_flip: image = np.flip(image, axis=0)
+        if self.horizontal_flip: image = np.flip(image, axis=1)
+        if self.rescale:
+            image *= self.rescale
+        if self.shear_range:
+            transform_matrix = transform.AffineTransform(shear=self.shear_range)
+            image = transform.warp(image, inverse_map=transform_matrix)
+        # following augmentations are inspired by the source code for the keras ImageDataGenerator
+        # https://github.com/keras-team/keras/blob/v2.11.0/keras/preprocessing/image.py#L1166-L2144
+        if self.zoom_range:
+            zx, zy = np.random.uniform(1 - self.zoom_range, 1 + self.zoom_range, 2)
+            zoom_matrix = np.array([[zx, 0, 0], [0, zy, 0], [0, 0, 1]])
+            image = np.dot(image, zoom_matrix)
+        if self.rotation_range:
+            theta = np.random.uniform(-self.rotation_range, self.rotation_range)
+            theta = np.deg2rad(theta)
+            rotation_matrix = np.array(
+                [
+                    [np.cos(theta), -np.sin(theta), 0],
+                    [np.sin(theta), np.cos(theta), 0],
+                    [0, 0, 1]
+                ]
+            )
+            image = np.dot(image, rotation_matrix)
         return image
 
-    def get_image(self, file_path):
-        """
-         Get an image as a numpy array given the path to a text file
-        """
+    def __get_image(self, file_path):
+        '''
+            return an image from a specified path as a numpy array
+        '''
         image = []
         with open(file_path) as file:
-            # the second dimension of the image list
             for line in file: image.append([float(x) for x in line.split()])
         # convert to 3 color channel
         image = np.stack((image,)*3, axis=-1)
-        # image = apply_augmentation(image)
+        image = self.__data_augmentation(image)
         return image
 
-    def get_data(self, data_frame):
-        """
-         Return a tuple of images, labels
-        """
-        file_paths = data_frame["filenames"]
-        file_labels = data_frame["labels"]
+    def __getitem__(self, idx):
+        x = self.data_frame["filenames"][idx * self.batch_size:(idx + 1) * self.batch_size]
+        y = self.data_frame["labels"][idx * self.batch_size:(idx + 1) * self.batch_size]
 
-        x = [self.get_image(file_path) for file_path in file_paths] 
-        y = [label for label in file_labels]
+        x = [self.__get_image(file_name) for file_name in x] 
+        y = [label for label in y]
 
         return tf.convert_to_tensor(x), tf.convert_to_tensor(y)
     
-    def flow_from_directory(self, path):
+    def get_data_frame(self, path):
         """
-         Get the path to all files in the directories and theirs labels
-         Call get_data() to get the images from each path
+            Get the path to all files in the directories and theirs labels
         """
         df = pd.DataFrame()
         filenames = []
@@ -73,11 +112,7 @@ class CustomKerasGenerator(tf.keras.utils.Sequence):
         df["filenames"] = filenames
         df["labels"] = labels
         
-        self.data = self.get_data(df)
-
-        print("Found {0} images in the given folder".format(len(df)))
-
-        return self.data
+        self.data_frame = df
 
 class Conv2D(keras.layers.Layer):
     """
@@ -217,15 +252,14 @@ if __name__ == "__main__":
     data_generator = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, rotation_range=45,
                                         horizontal_flip=True, vertical_flip=True, validation_split=.2, brightness_range=[0.4, 1.5])
     training_set = data_generator.flow_from_directory('./train/train', target_size=(
-        resolution, resolution), batch_size=32, class_mode='binary', subset='training')
-    print(training_set[0])
+        resolution, resolution), batch_size=20, class_mode='binary', subset='training')
 
     # testing data is encoded in .txt files
     # each file contains a 224x224 matrix of the pixelvalues of an image
     # the matrix is 2D, so we only have 1 color channel (fine, since we will train the model on 1 color channel anyways)
     model = create_model(resolution, load_previous_model=False)
-    model.fit(training_set, steps_per_epoch=len(training_set), epochs=1)
+    model.fit(training_set, steps_per_epoch=len(training_set), epochs=5)
 
-    custom_generator = CustomKerasGenerator()
-    testing_set = custom_generator.flow_from_directory("./test_encoded/test_encoded")
-    model.evaluate(testing_set, batch_size=32)
+    training_generator = CustomDataGenerator("./test_encoded/test_encoded", rescale=1./255, shear_range=0.2, zoom_range=0.2, rotation_range=45, 
+                                            horizontal_flip=True, vertical_flip=True, brightness_range=[0.4, 1.5])
+    model.evaluate(training_generator)
