@@ -19,21 +19,19 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
         Custom DataGenerator to load text images 
     '''
     def __init__(self, path, rescale=None, shear_range=None, zoom_range=None, rotation_range=None, 
-                horizontal_flip=False, vertical_flip=False, brightness_range=None, batch_size=10, img_shape=None, augmentation=True, num_classes=2):
+                horizontal_flip=False, vertical_flip=False, batch_size=10, num_classes=2):
         self.data_frame = None
         self.get_data_frame(path)
         self.n = len(self.data_frame)
         self.batch_size = batch_size
-        self.img_shape = img_shape
         self.num_classes = num_classes
 
         self.rescale = rescale
-        self.horizontal_flip = horizontal_flip
-        self.vertical_flip = vertical_flip
         self.shear_range = shear_range
         self.zoom_range = zoom_range
         self.rotation_range = rotation_range
-        self.brightness_range = brightness_range
+        self.horizontal_flip = horizontal_flip
+        self.vertical_flip = vertical_flip
         print(f"Found {self.data_frame.shape[0]} images belonging to {self.num_classes} classes")
 
     def __len__(self):
@@ -151,6 +149,17 @@ class Conv2D(keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return (None, self.out_h, self.out_w, self.filters)
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "k_h": self.k_h,
+            "k_w": self.k_w,
+            "kernel": self.kernel,
+            "activation": self.activation
+        })
+        return config
 
 class Linear(keras.layers.Layer):
     """
@@ -177,6 +186,15 @@ class Linear(keras.layers.Layer):
         outputs = tf.matmul(inputs, self.w) + self.b
         outputs = self.activation(outputs)
         return outputs
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "w": self.w,
+            "b": self.b,
+            "activation": self.activation,
+        })
+        return config
 
 
 class MaxPooling2D(keras.layers.Layer):
@@ -196,6 +214,13 @@ class MaxPooling2D(keras.layers.Layer):
                           pool_mode='max')
 
         return pooled
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "pool_size": self.pool_size
+        })
+        return config
 
 def create_model(resolution, load_previous_model=True):
     """ Return a keras model
@@ -245,6 +270,50 @@ def create_model(resolution, load_previous_model=True):
 
         return model
 
+def train(model, training_set, epochs, save):
+    history = model.fit(training_set, steps_per_epoch=len(training_set), epochs=epochs)
+    #if save: model.save('model.h5')
+    return history
+
+def model_eval(model, testing_set):
+  # evaluate model
+  results = model.evaluate(testing_set)
+  # print evaluation results
+  print("test loss, test acc:", results)
+
+  # create model predictions
+  predictions = model.predict(testing_set)
+  # normalize the predictions
+  predictions[predictions <= 0.5] = 0
+  predictions[predictions > 0.5] = 1
+
+  # print predictions
+  # print("Predictions: ", predictions)
+
+def plot_learning_curve(history, figure_name):
+  history_dict = history.history
+  loss_values = history_dict['loss']
+  accuracy = history_dict['accuracy']
+
+  epochs = range(1, len(loss_values) + 1)
+  fig, ax = plt.subplots(1, 2, figsize=(14, 6))
+
+  # plot accuracy
+  ax[0].plot(epochs, accuracy, label='Training accuracy')
+  ax[0].set_title('Training Accuracy')
+  ax[0].set_xlabel('Epochs')
+  ax[0].set_ylabel('Accuracy')
+  ax[0].legend()
+
+  # plot loss
+  ax[1].plot(epochs, loss_values, label='Training loss')
+  ax[1].set_title('Training Loss')
+  ax[1].set_xlabel('Epochs')
+  ax[1].set_ylabel('Loss')
+  ax[1].legend()
+
+  plt.savefig(figure_name)
+
 if __name__ == "__main__":
     resolution = 224  # 224x224x3
 
@@ -254,12 +323,10 @@ if __name__ == "__main__":
     training_set = data_generator.flow_from_directory('./train/train', target_size=(
         resolution, resolution), batch_size=20, class_mode='binary', subset='training')
 
-    # testing data is encoded in .txt files
-    # each file contains a 224x224 matrix of the pixelvalues of an image
-    # the matrix is 2D, so we only have 1 color channel (fine, since we will train the model on 1 color channel anyways)
-    model = create_model(resolution, load_previous_model=False)
-    model.fit(training_set, steps_per_epoch=len(training_set), epochs=5)
+    testing_generator = CustomDataGenerator("./test_encoded/test_encoded", rescale=1./255, shear_range=0.2, zoom_range=0.2, rotation_range=45, 
+                                            horizontal_flip=True, vertical_flip=True)
 
-    training_generator = CustomDataGenerator("./test_encoded/test_encoded", rescale=1./255, shear_range=0.2, zoom_range=0.2, rotation_range=45, 
-                                            horizontal_flip=True, vertical_flip=True, brightness_range=[0.4, 1.5])
-    model.evaluate(training_generator)
+    model = create_model(resolution, load_previous_model=False)
+    history = train(model, training_set, epochs=10, save=True)
+    model_eval(model, testing_generator)
+    plot_learning_curve(history, "results")
