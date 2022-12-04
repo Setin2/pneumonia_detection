@@ -154,10 +154,7 @@ class Conv2D(keras.layers.Layer):
         config = super().get_config()
         config.update({
             "filters": self.filters,
-            "k_h": self.k_h,
-            "k_w": self.k_w,
-            "kernel": self.kernel,
-            "activation": self.activation
+            "kernel_size": self.kernel_size
         })
         return config
 
@@ -171,12 +168,12 @@ class Linear(keras.layers.Layer):
         # randomly generate weights
         weights_init = tf.random_normal_initializer()
         self.w = tf.Variable(
-            initial_value=weights_init(shape=(n_inputs, n_neurons), dtype="float32"), trainable=True,
+            initial_value=weights_init(shape=(n_inputs, n_neurons), dtype="float32"), trainable=True, name="w"
         )
         # generate bias
         bias_initializer = tf.zeros_initializer()
         self.b = tf.Variable(
-            initial_value=bias_initializer(shape=(n_neurons,), dtype="float32"), trainable=True
+            initial_value=bias_initializer(shape=(n_neurons,), dtype="float32"), trainable=True, name="b"
         )
         # get activation function
         self.activation = activations.get(activation)
@@ -190,8 +187,8 @@ class Linear(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-            "w": self.w,
-            "b": self.b,
+            "w": self.w.numpy(),
+            "b": self.b.numpy(),
             "activation": self.activation,
         })
         return config
@@ -272,7 +269,7 @@ def create_model(resolution, load_previous_model=True):
 
 def train(model, training_set, epochs, save):
     history = model.fit(training_set, steps_per_epoch=len(training_set), epochs=epochs)
-    #if save: model.save('model.h5')
+    if save: model.save('model.h5', include_optimizer=False)
     return history
 
 def model_eval(model, testing_set):
