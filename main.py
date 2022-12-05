@@ -163,20 +163,14 @@ class Linear(keras.layers.Layer):
       Custom implementation of a dense layer
     """
 
-    def __init__(self, n_inputs, n_neurons, activation):
-        super(Linear, self).__init__()
-        # randomly generate weights
-        weights_init = tf.random_normal_initializer()
-        self.w = tf.Variable(
-            initial_value=weights_init(shape=(n_inputs, n_neurons), dtype="float32"), trainable=True, name="w"
-        )
-        # generate bias
-        bias_initializer = tf.zeros_initializer()
-        self.b = tf.Variable(
-            initial_value=bias_initializer(shape=(n_neurons,), dtype="float32"), trainable=True, name="b"
-        )
-        # get activation function
+    def __init__(self,n_neurons, activation, **kwargs):
+        super(Linear, self).__init__(**kwargs)
+        self.n_neurons = n_neurons
         self.activation = activations.get(activation)
+
+    def build(self, input_shape):
+        self.w = self.add_weight(shape=(input_shape[-1], self.n_neurons),initializer="random_normal",trainable=True, name='w')
+        self.b = self.add_weight(shape=(self.n_neurons,), initializer="random_normal", trainable=True, name='b')
 
     # takes 1 argument, the input dataset
     def call(self, inputs):
@@ -187,8 +181,7 @@ class Linear(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-            "w": self.w.numpy(),
-            "b": self.b.numpy(),
+            "n_neurons": self.n_neurons,
             "activation": self.activation,
         })
         return config
@@ -222,13 +215,13 @@ class MaxPooling2D(keras.layers.Layer):
 def create_model(resolution, load_previous_model=True):
     """ Return a keras model
     Either load a  preexisting model, if there is one, or create a new model from scratch
-    We  can use flatten function and such
     """
     if os.path.isfile('model.h5') and load_previous_model:
-        return tf.keras.models.load_model('model.h5')
+        return tf.keras.models.load_model('model.h5', custom_objects={'Linear': Linear})
     else:
         # here we need to implement the model
         model = keras.models.Sequential([
+            keras.layers.Input(shape=[resolution, resolution, 3]),
             # here we need to use the layers we will implement
             # since Conv2D is the first layer of the neural network, we should also specify the size of the input
             Conv2D(filters=16, kernel=(3, 3), activation='relu'),
@@ -236,7 +229,6 @@ def create_model(resolution, load_previous_model=True):
             MaxPooling2D(),
             keras.layers.Dropout(0.2),
             # and repeat the process
-
             Conv2D(filters=16, kernel=(3, 3), activation='relu'),
             # keras.layers.Conv2D(32, (3, 3), activation='relu'),
             MaxPooling2D(),
@@ -248,10 +240,14 @@ def create_model(resolution, load_previous_model=True):
             keras.layers.Dropout(0.2),
             # flatten the result to feed it to the dense layer
             keras.layers.Flatten(),
+
+            # model.add(keras.layers.Flatten())
             # and define 512 neurons for processing the output coming by the previous layers
-            Linear(50176, 512, activation="relu"),
+            Linear(n_neurons=512, activation="relu"),
+            # keras.layers.Dense(512, activation='relu'),
             # a single output neuron. The result will be 0 if the image is a cat, 1 if it is a dog
-            Linear(512, 1, activation="sigmoid")
+            Linear(n_neurons=1, activation="sigmoid"),
+            # keras.layers.Dense(1, activation='sigmoid'),
         ])
 
         model.build((None, resolution, resolution, 3))
@@ -323,7 +319,7 @@ if __name__ == "__main__":
     testing_generator = CustomDataGenerator("./test_encoded/test_encoded", rescale=1./255, shear_range=0.2, zoom_range=0.2, rotation_range=45, 
                                             horizontal_flip=True, vertical_flip=True)
 
-    model = create_model(resolution, load_previous_model=False)
-    history = train(model, training_set, epochs=10, save=True)
+    model = create_model(resolution, load_previous_model=True)
+    history = train(model, training_set, epochs=1, save=True)
     model_eval(model, testing_generator)
     plot_learning_curve(history, "results")
