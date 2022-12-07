@@ -101,11 +101,12 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
         image_class = 0
         
         for directory in os.listdir(path):
-            images = os.listdir(os.path.join(path, directory))
+            if not directory.startswith("."):
+                images = os.listdir(os.path.join(path, directory))
             
-            for image in images:
-                filenames.append(os.path.join(path, directory, image))
-                labels.append(image_class)
+                for image in images:
+                    filenames.append(os.path.join(path, directory, image))
+                    labels.append(image_class)
             
         df["filenames"] = filenames
         df["labels"] = labels
