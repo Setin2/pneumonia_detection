@@ -14,6 +14,8 @@ from keras.utils.vis_utils import plot_model
 from keras.preprocessing.image import ImageDataGenerator
 from keras.layers.attention.multi_head_attention import activation
 
+MODEL_NAME = "model.h5"
+
 class CustomDataGenerator(tf.keras.utils.Sequence):
     ''' 
         Custom DataGenerator to load text images 
@@ -217,8 +219,8 @@ def create_model(resolution, load_previous_model=True):
     """ Return a keras model
     Either load a  preexisting model, if there is one, or create a new model from scratch
     """
-    if os.path.isfile('model.h5') and load_previous_model:
-        return tf.keras.models.load_model('model.h5', custom_objects={'Linear': Linear})
+    if os.path.isfile(MODEL_NAME) and load_previous_model:
+        return tf.keras.models.load_model(MODEL_NAME, custom_objects={'Linear': Linear})
     else:
         # here we need to implement the model
         model = keras.models.Sequential([
