@@ -91,7 +91,7 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
         x = [self.__get_image(file_name) for file_name in x] 
         y = [label for label in y]
 
-        return tf.convert_to_tensor(x), tf.convert_to_tensor(y)
+        return np.asarray(x, dtype=np.float32), np.asarray(y, dtype=np.float32)
     
     def get_data_frame(self, path):
         """
@@ -109,6 +109,8 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
                 for image in images:
                     filenames.append(os.path.join(path, directory, image))
                     labels.append(image_class)
+            
+            image_class = 1
             
         df["filenames"] = filenames
         df["labels"] = labels
@@ -322,7 +324,7 @@ if __name__ == "__main__":
     testing_generator = CustomDataGenerator("./test_encoded/test_encoded", rescale=1./255, shear_range=0.2, zoom_range=0.2, rotation_range=45, 
                                             horizontal_flip=True, vertical_flip=True)
 
-    model = create_model(resolution, load_previous_model=True)
+    model = create_model(resolution, load_previous_model=False)
     history = train(model, training_set, epochs=1, save=True)
     model_eval(model, testing_generator)
     plot_learning_curve(history, "results")
